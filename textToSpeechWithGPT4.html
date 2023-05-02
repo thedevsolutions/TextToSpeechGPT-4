@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Text to speech</title>
+        <!-- Required meta tags -->
+        <meta charset="utf-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, shrink-to-fit=no"
+        />
+
+        <!-- Bootstrap CSS -->
+        <link
+            rel="stylesheet"
+            href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+            integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+            crossorigin="anonymous"
+        />
+    </head>
+    <body>
+        <div id="root"></div>
+
+        <!-- Optional JavaScript -->
+        <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+        <script
+            src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+            integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+            crossorigin="anonymous"
+        ></script>
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+            integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+            crossorigin="anonymous"
+        ></script>
+        <script
+            src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+            integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+            crossorigin="anonymous"
+        ></script>
+        <script src="https://unpkg.com/react@17.0.2/umd/react.development.js"></script>
+        <script src="https://unpkg.com/react-dom@17.0.2/umd/react-dom.development.js"></script>
+        <script src="https://unpkg.com/@babel/standalone@7.15.8/babel.min.js"></script>
+        <script type="text/babel">
+            const { useState, useEffect, useRef } = React;
+            const App = () => {
+                const [recording, setRecording] = useState(false);
+                const [voice, setVoice] = useState(null);
+                const [input, setInput] = useState(null);
+                const [results, setResults] = useState([
+                    // { question: "saad", answer: "answere" }
+                ]);
+                const [trans_loader, setTranscriptLoader] = useState(false);
+                const [api_loader, setApiLoader] = useState(false);
+                const recognitionRef = useRef(null);
+                useEffect(() => {
+                    var msg = new SpeechSynthesisUtterance();
+                    msg.text = "Hello World";
+                    window.speechSynthesis.speak(msg);
+                }, []);
+
+                const start = () => {
+                    setTranscriptLoader(true);
+                    // let timeout = null;
+                    setInput(null);
+                    // Check if the browser supports the Web Speech API
+                    if ("webkitSpeechRecognition" in window) {
+                        setRecording(true);
+                        // Create a new instance of the SpeechRecognition object
+                        let recognition = new webkitSpeechRecognition();
+
+                        // Set the continuous flag to true
+                        recognition.continuous = true;
+
+                        // Set the language to the user's default language
+                        recognition.lang = window.navigator.language;
+
+                        // Set the interimResults flag to show interim results
+                        recognition.interimResults = true;
+
+                        // Add an event listener to handle the results
+                        recognition.onresult = function (event) {
+                            setInput(
+                                event.results[event.results.length - 1][0]
+                                    .transcript
+                            );
+                        };
+
+                        // Start the speech recognition
+                        recognition.start();
+
+                        recognition.onend = function (event) {
+                            setTranscriptLoader(false);
+                            setRecording(false);
+                        };
+                        // timeout = setTimeout(() => {
+                        //     recognition.stop();
+                        //     setRecording(false);
+                        // }, 5000);
+                        recognitionRef.current = recognition;
+                    }
+                };
+
+                const stop = () => {
+                    if (recognitionRef.current) {
+                        recognitionRef.current.stop();
+                        setRecording(false);
+                    }
+                };
+
+                const onlyTranscripting = () => {
+                    setResults([...results, { question: input }]);
+                };
+
+                const withSummary = () => {
+                    setApiLoader(true);
+                    const API_KEY =
+                        "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";
+
+                    const url = "https://api.openai.com/v1/chat/completions";
+                    const body = {
+                        model: "gpt-4",
+                        temperature: 0.05,
+                        max_tokens: 256,
+                        top_p: 1,
+                        frequency_penalty: 0,
+                        presence_penalty: 0,
+                        messages: [
+                            { role: "system", content: "" },
+                            {
+                                role: "assistant",
+                                content:
+                                    "HPI, psychiatric review of symptoms, psychiatric history, medical history, family history, social history, mental status exam, and clinical assessment and plan"
+                            },
+                            { role: "user", content: input }
+                        ]
+                    };
+
+                    fetch(url, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${API_KEY}`
+                        },
+                        body: JSON.stringify(body)
+                    })
+                        .then((response) => response.json())
+                        .then((data) => {
+                            setApiLoader(false);
+                            const summary = data.choices[0].message.content;
+                            setResults([
+                                ...results,
+                                { question: input, answer: summary }
+                            ]);
+                        });
+                };
+
+                const download = (e, item) => {
+                    console.log("called", e, item);
+                    const value = e.target.value;
+                    if (value === "text") {
+                        copyToClipboard(JSON.stringify(item));
+                    } else {
+                        Download(item);
+                    }
+                };
+                function copyToClipboard(code) {
+                    if (navigator.clipboard?.writeText) {
+                        try {
+                            navigator.clipboard.writeText(code);
+                        } catch (e) {
+                            console.error("Error while copying code", e);
+                        }
+                    }
+                }
+
+                function Download(item) {
+                    var name = item.question;
+
+                    const content = JSON.stringify(item); //content
+                    const element = document.createElement("a");
+                    const blob = new Blob([content], {
+                        type: "plain/text"
+                    });
+                    const fileurl = URL.createObjectURL(blob);
+                    element.setAttribute("href", fileurl);
+                    element.setAttribute("download", name + ".html");
+                    element.style.display = "none";
+                    document.body.appendChild(element);
+                    element.click();
+
+                    document.body.removeChild(element);
+                }
+
+                return (
+                    <div className="container-fluid">
+                        <div className="row">
+                            <div className="col-md-12 border-bottom">
+                                <h3 className="p-2 text-success text-center ">
+                                    Text to speech with GPT-4
+                                </h3>
+                            </div>
+                            <div className="col-md-6 p-2 text-center d-flex justify-content-between">
+                                {/* <input
+                                    className="form-control"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                /> */}
+                                <button
+                                    className="btn btn-sm btn-outline-primary"
+                                    onClick={recording ? stop : start}
+                                >
+                                    {recording ? "stop" : "Voice"}
+                                </button>
+                            </div>
+                            {input && (
+                                <div className="col-md-6 p-2 d-flex justify-content-between">
+                                    {trans_loader ? (
+                                        <p>Transcripting...</p>
+                                    ) : (
+                                        <>
+                                            <button
+                                                className="btn btn-sm w-50 btn-success"
+                                                onClick={onlyTranscripting}
+                                            >
+                                                Only Transcript
+                                            </button>
+                                            <button
+                                                className="btn btn-sm w-50 btn-warning"
+                                                onClick={withSummary}
+                                            >
+                                                Transcript + Summary
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="row">
+                            <div className="col-md-12 text-right ">
+                                <h6 className="p-2 text-secondary text-center w-100 border-bottom">
+                                    Results {api_loader && <p>Fetching...</p>}
+                                </h6>
+                            </div>
+                            {results.map((item, index) => {
+                                return (
+                                    <div
+                                        key={index}
+                                        className="col-md-12 border-bottom p-2 bg-light "
+                                    >
+                                        <p className="text-info">
+                                            Question: {item.question}
+                                        </p>
+                                        <p className="text-danger">
+                                            Answer: {item.answer}
+                                        </p>
+                                        <select
+                                            onChange={(e) => download(e, item)}
+                                        >
+                                            <option
+                                                selected
+                                                disabled
+                                                className=""
+                                                style={{ float: "right" }}
+                                            >
+                                                Download
+                                            </option>
+                                            <option value={"text"}>
+                                                Copy Text
+                                            </option>
+                                            <option value={"file"}>
+                                                download file
+                                            </option>
+                                        </select>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            };
+            ReactDOM.render(<App />, document.getElementById("root"));
+        </script>
+        <script type="text/javascript">
+            const transpileScript = () => {
+                const scriptElement = document.querySelector(
+                    'script[type="text/babel"]'
+                );
+                const transpiledCode = Babel.transform(
+                    scriptElement.innerHTML,
+                    { presets: ["react"] }
+                ).code;
+                const newScriptElement = document.createElement("script");
+                newScriptElement.textContent = transpiledCode;
+                scriptElement.parentNode.replaceChild(
+                    newScriptElement,
+                    scriptElement
+                );
+            };
+
+            if (typeof Babel !== "undefined") {
+                transpileScript();
+            } else {
+                document.write("<p>Please wait, loading Babel...</p>");
+                document.addEventListener("DOMContentLoaded", transpileScript);
+            }
+        </script>
+    </body>
+</html>
