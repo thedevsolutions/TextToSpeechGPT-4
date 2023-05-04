@@ -7,7 +7,7 @@ import { LineWave, Audio } from "react-loader-spinner";
 import jsPDF from "jspdf";
 
 function App() {
-    const API_KEY = "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";
+    const API_KEY = "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";
     const url = "https://api.openai.com/v1/organizationchat/completions";
 
     const configuration = new Configuration({
@@ -46,9 +46,17 @@ function App() {
 
             // Add an event listener to handle the results
             recognition.onresult = function (event) {
-                setInput(event.results[event.results.length - 1][0].transcript);
+                console.log(event.results.length, typeof event.results);
+                let temp = "";
+                Object.keys(event.results).forEach((item, keyname) => {
+                    console.log(event.results[keyname]);
+                    temp += event.results[keyname][0].transcript;
+                });
+                setInput(temp);
+                // setInput(event.results[event.results.length - 1][0].transcript);
             };
 
+            console.log(input);
             // Start the speech recognition
             recognition.start();
 
@@ -89,20 +97,6 @@ function App() {
         const summary = response?.data?.choices[0]?.text;
         setResults({ ...results, question: null, answer: summary });
         setApiLoader(false);
-        // fetch(url, {
-        //     method: "POST",
-        //     headers: {
-        //         "Content-Type": "application/json",
-        //         Authorization: `Bearer ${API_KEY}`
-        //     },
-        //     body: JSON.stringify(body)
-        // })
-        //     .then((response) => response.json())
-        //     .then((data) => {
-        //         setApiLoader(false);
-        //         const summary = data.choices[0].message.content;
-        //         setResults([...results, { question: input, answer: summary }]);
-        //     });
     };
 
     const withSummary = async () => {
@@ -122,40 +116,6 @@ function App() {
         const summary = response?.data?.choices[0]?.text;
         setResults({ ...results, question: input, answer: summary });
         setApiLoader(false);
-    };
-
-    const fetchResults = async () => {
-        const body = {
-            model: "gpt-4",
-            temperature: 0.05,
-            max_tokens: 256,
-            top_p: 1,
-            frequency_penalty: 0,
-            presence_penalty: 0,
-            messages: [
-                { role: "system", content: "" },
-                {
-                    role: "assistant",
-                    content:
-                        "HPI, psychiatric review of symptoms, psychiatric history, medical history, family history, social history, mental status exam, and clinical assessment and plan"
-                },
-                { role: "user", content: input }
-            ]
-        };
-        const res = fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${API_KEY}`
-            },
-            body: JSON.stringify(body)
-        })
-            .then((response) => response.json())
-            .then((data) => {
-                setApiLoader(false);
-                const summary = data.choices[0].message.content;
-                setResults({ ...results, question: input, answer: summary });
-            });
     };
 
     const download = (e, item) => {
@@ -202,10 +162,17 @@ function App() {
             <div className="row">
                 <div className="col-md-12 border-bottom">
                     <h3 className="p-2 text-success text-center ">
-                        Text to speech with GPT-4
+                        Speech to text with GPT-4
                     </h3>
                 </div>
-                <div className="col-md-12 p-2 ml-2 text-center d-flex justify-content-center">
+                <div className="col-md-3 p-2 ml-2"></div>
+                <div className="col-md-6 p-2 ml-2 text-center d-flex justify-content-between">
+                    <input
+                        className="form-control w-75"
+                        placeholder="Type or speak.."
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                    ></input>
                     <button
                         className="btn btn-sm btn-outline-primary"
                         onClick={recording ? stop : start}
@@ -213,6 +180,8 @@ function App() {
                         {recording ? "stop" : "Initiate Conversation"}
                     </button>
                 </div>
+                <div className="col-md-3 p-2 ml-2"></div>
+
                 <div className="col-md-3 p-2 d-flex justify-content-center"></div>
 
                 {input && (
